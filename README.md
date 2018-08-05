@@ -155,45 +155,66 @@ _sourcer_ defines the concept of a _cancellable worker_. Essentially,
 since every LSP method is executed within a separate process, this
 process can be killed at any time. Each worker processes can send
 _partial results_ to a central server, which can return these partial
-results to the client upon cancellation. This is not the cases for the
+results to the client upon cancellation. This is not the case for the
 _erlang_ls_ project, where processes can be killed, but no _partial_
 results are sent back to the client. The rationale behind this choice
 is that partial result could often be misleading to the end
 user. Please notice that _request cancellation_ and _partial results_
 are optional features according to the LSP protocol, so both
-approaches are valid.
+approaches are valid. Also, partial results are only 
+meaningful for some queries, that return lists of things and where it 
+is acceptable to not get all results (for example, when renaming 
+something, we want all results or none). 
 
-_sourcer_ supports full-text synchronization, meaning that upon each
-change the entire content of the modified buffer is sent to the
-server. All contents for all buffers are stored into the state of a
+_sourcer_ supports currently only full-text synchronization, meaning 
+that upon each change the entire content of the modified buffer is sent 
+to the server. All contents for all buffers are stored into the state of a
 single process. On the contrary, _erlang_ls_ has a dedicated
 supervisor for text synchronization purposes, where each opened buffer
 is modelled as a separate Erlang process with its own state, favouring
 decoupling.
 
 An interesting idea in _sourcer_ is the presence of a _database_ which
-is populated by worker processes and queried by the LSP server. The
+is populated by the worker processes and queried by the LSP server. The
 database acts as a memoization tool and avoids re-calculating already
-calculated information.
+calculated information. It also allows several language servers to interact, 
+for example if a project contains Erlang, Elixir and LFE code, and servers 
+for all languages are installed and use the database, the clients will
+get support for everything, regardless of where it is implemented. 
+Furthermore, it is possible to prebuild and distribute a database for 
+one's project (or the OTP libraries), so that support is available even if
+the source code is not (and there should be a performance improvement too).
 
 _sourcer_ implements a custom scanner and parser, which try to handle
 situations where, for example, an un-closed string would provoke the
 rest of an Erlang module to be un-parsable. It does so by artificially
-adding quotes and other potentially missing tokens. Having a
+adding quotes and other potentially missing tokens. The parser is also 
+ignoring the structure of the code, only being interested in finding the 
+elements it needs to cross-reference. Having a
 temporarily un-parsable module is not considered an actual problem by
 the _erlang_ls_ project, which prefers simplicity in this scenario
 and uses the default Erlang scanner and parser.
 
-_sourcer_ implements some very basic _project_ support, mainly
-focusing on [rebar3](https://www.rebar3.org/) conventions. _erlang_ls_
+Another reason for having a custom scanner/parser is that we can handle
+macros as regular language elements. 
+
+_sourcer_ implements currently some very basic _project_ support, mainly
+focusing on [rebar3](https://www.rebar3.org/) conventions. It can then 
+support projects with exotic structures, requiring that this structure
+is described in a format it can read. _erlang_ls_
 tries to be agnostic of the building tool whilst providing _workspace_
-functionalities.
+functionalities. 
 
 _sourcer_ provides auto-formatting of Erlang modules using custom
-tools (i.e. the `sourcer_indent` module). _erlang_ls_ prefers standard
-Erlang tools, such as the `erl_tidy` module. In the same way,
+tools (i.e. the `sourcer_indent` module, which is matching the indenter
+for the emacs-mode). _erlang_ls_ prefers standard
+Erlang tools, such as the `erl_tidy` module. 
+
+In the same way,
 _sourcer_ prefers to run its own custom cross-reference analysis of
-Erlang modules, whilst _erlang_ls_ prefers the standard _xref_ tool.
+Erlang modules (which handles references to macros, records, record fields 
+and types and can also scan comments and for references),
+whilst _erlang_ls_ prefers the standard _xref_ tool.
 
 ### vscode_erlang
 
